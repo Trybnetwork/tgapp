@@ -239,7 +239,6 @@
     <div class="card" style="margin-top:14px;">
       <div class="stake-row" style="margin-top:0;">
         <div class="stake-in"><span id="stakeCur">$</span><input id="stakeAmt" type="number" inputmode="decimal" value="1" min="1"></div>
-        <div class="pay-tog"><button id="payMain" class="on" type="button">Main $</button><button id="payCoin" type="button">TrybCoin</button></div>
       </div>
       <div class="small mut" id="payoutInfo" style="margin-top:9px;"></div>
       <div class="dir-row">
@@ -439,10 +438,10 @@ function addWagering(amount){
   S.wagering = round2((Number(S.wagering) || 0) + amount);
   sb.from("tn_profiles").update({ wagering_volume: S.wagering }).eq("id", S.user.id).then(function(){}).catch(function(){});
 }
-function deductStake(usd){
+function deductStake(usd, forceSrc){
   usd = round2(usd);
   if (!(usd > 0)) return { ok: false };
-  if (S.stakeSource === "trybcoin"){
+  if ((forceSrc || S.stakeSource) === "trybcoin"){
     var need = Math.round(usd * 1000);
     if (Math.round(S.coins) < need){ toast("Not enough TrybCoin", "You need " + fmtTN(need) + " TN for a " + fmtUSD(usd) + " stake."); return { ok: false }; }
     S.coins -= need;
@@ -723,21 +722,19 @@ function effectiveStake(){
   return round2(base);
 }
 function syncPayToggles(){
-  [["payMain", "payCoin", "main"], ["spinPayMain", "spinPayCoin", "main"], ["avPayMain", "avPayCoin", "main"]].forEach(function(t){
+  [["spinPayMain", "spinPayCoin", "main"], ["avPayMain", "avPayCoin", "main"]].forEach(function(t){
     var a = $(t[0]), b = $(t[1]);
     if (a) a.classList.toggle("on", S.stakeSource === "main");
     if (b) b.classList.toggle("on", S.stakeSource === "trybcoin");
   });
   var sc = $("stakeCur");
-  if (sc) sc.textContent = S.stakeSource === "trybcoin" ? "TN$" : "$";
+  if (sc) sc.textContent = "$";
 }
 function setStakeSource(src){
   S.stakeSource = src;
   try { localStorage.setItem("tg_pay_source", src); } catch(e){}
   syncPayToggles(); renderPayoutInfo();
 }
-$("payMain").addEventListener("click", function(){ setStakeSource("main"); });
-$("payCoin").addEventListener("click", function(){ setStakeSource("trybcoin"); });
 $("stakeAmt").addEventListener("input", renderPayoutInfo);
 function renderPayoutInfo(){
   var stake = effectiveStake();
@@ -800,7 +797,7 @@ function placeBid(dir){
   var stake = effectiveStake();
   if (!(stake > 0)){ toast("Enter a stake first", "Set a stake above $0."); return; }
   var prevMain = S.main, prevCoins = S.coins, prevTraded = S.bonusTraded, prevLocked = S.bonusLocked;
-  var dd = deductStake(stake);
+  var dd = deductStake(stake, "main"); // Binary is Main Balance only
   if (!dd.ok) { renderAll(); return; }
   bidBusy = true;
   $("btnHigher").disabled = true; $("btnLower").disabled = true;

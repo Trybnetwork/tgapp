@@ -1,0 +1,1345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>TrybNetwork — Telegram App</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://s3.tradingview.com/tv.js"></script>
+<style>
+  :root{
+    --navy:#0B1132; --navy2:#111A45; --card:#151E4D; --card2:#1A2560;
+    --gold:#C9A24B; --gold-hi:#F2D488; --gold-deep:#9A7B2D;
+    --ink:#F4F2EA; --mut:#9BA1C0; --line:rgba(201,162,75,.22);
+    --green:#2FBF71; --red:#FF5A5A; --radius:18px;
+  }
+  html,body{ margin:0; padding:0; }
+  body{ background:var(--navy); color:var(--ink); font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Manrope,Arial,sans-serif; -webkit-font-smoothing:antialiased; padding-bottom:86px; }
+  .hidden{ display:none !important; }
+  button{ font-family:inherit; }
+  input{ font-family:inherit; }
+  .num{ font-variant-numeric:tabular-nums; }
+
+  /* ---------- auth ---------- */
+  .auth{ min-height:100vh; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:28px 22px; box-sizing:border-box;
+    background:radial-gradient(120% 90% at 50% 0%, #18235C 0%, var(--navy) 55%); }
+  .auth-badge{ width:104px; height:104px; border-radius:50%; border:3px solid var(--gold); display:grid; place-items:center; background:#27345E; box-shadow:0 14px 34px rgba(0,0,0,.4); }
+  .auth h1{ margin:18px 0 2px; font-size:27px; letter-spacing:.4px; }
+  .auth h1 span{ color:var(--gold-hi); }
+  .auth .tag{ color:var(--mut); font-size:12px; letter-spacing:3.5px; margin:0 0 26px; }
+  .auth-card{ width:100%; max-width:360px; background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:20px 18px; box-sizing:border-box; }
+  .auth-card label{ display:block; font-size:12px; font-weight:700; color:var(--mut); margin:12px 0 6px; letter-spacing:.4px; }
+  .auth-card label:first-child{ margin-top:0; }
+  .field{ width:100%; box-sizing:border-box; background:var(--navy2); border:1px solid var(--line); color:var(--ink); border-radius:12px; padding:13px 14px; font-size:16px; outline:none; }
+  .field:focus{ border-color:var(--gold); }
+  .btn{ border:none; cursor:pointer; border-radius:13px; padding:14px 18px; font-size:15px; font-weight:800; }
+  .btn-gold{ background:linear-gradient(180deg, var(--gold-hi), var(--gold)); color:#231A02; width:100%; margin-top:18px; }
+  .btn-gold:disabled{ opacity:.55; }
+  .btn-ghost{ background:transparent; color:var(--gold-hi); border:1px solid var(--line); width:100%; margin-top:10px; }
+  .auth-err{ display:none; margin-top:12px; background:rgba(255,90,90,.12); border:1px solid rgba(255,90,90,.4); color:#FFB3B3; border-radius:10px; padding:10px 12px; font-size:13px; }
+  .auth-note{ color:var(--mut); font-size:12.5px; text-align:center; margin-top:16px; line-height:1.5; }
+
+  /* ---------- shell ---------- */
+  .hdr{ position:sticky; top:0; z-index:40; display:flex; align-items:center; gap:11px; padding:12px 16px; background:rgba(11,17,50,.92); backdrop-filter:blur(8px); border-bottom:1px solid var(--line); }
+  .hdr-av{ width:40px; height:40px; border-radius:50%; background:#27345E; border:2px solid var(--gold); display:grid; place-items:center; font-weight:800; color:var(--gold-hi); overflow:hidden; flex:none; }
+  .hdr-av img{ width:100%; height:100%; object-fit:cover; }
+  .hdr-name{ font-size:15.5px; font-weight:800; line-height:1.15; }
+  .hdr-sub{ font-size:12px; color:var(--mut); }
+  .coin-pill{ margin-left:auto; display:flex; align-items:center; gap:6px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:6px 11px; font-size:13px; font-weight:800; color:var(--gold-hi); flex:none; }
+  .coin-dot{ width:17px; height:17px; border-radius:50%; background:radial-gradient(circle at 35% 30%, var(--gold-hi), var(--gold-deep)); display:grid; place-items:center; font-size:9px; color:#231A02; font-weight:900; }
+  .view{ padding:16px; max-width:560px; margin:0 auto; }
+  .card{ background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:17px; margin-bottom:14px; }
+  .card h3{ margin:0 0 4px; font-size:16px; }
+  .mut{ color:var(--mut); } .small{ font-size:12.5px; } 
+  .bal-total{ font-size:34px; font-weight:900; letter-spacing:.2px; }
+  .bal-row{ display:flex; gap:9px; margin-top:13px; }
+  .bal-cell{ flex:1; background:var(--navy2); border:1px solid var(--line); border-radius:13px; padding:10px 11px; }
+  .bal-cell .k{ font-size:11px; color:var(--mut); font-weight:700; letter-spacing:.4px; }
+  .bal-cell .v{ font-size:16px; font-weight:800; margin-top:2px; }
+  .fund-row{ display:flex; gap:10px; margin-top:14px; }
+  .fund-row .btn{ flex:1; margin:0; }
+  .btn-navy{ background:var(--card2); color:var(--ink); border:1px solid var(--line); }
+  .quick{ display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; }
+  .quick button{ background:var(--card); border:1px solid var(--line); border-radius:15px; padding:14px 6px; color:var(--ink); font-size:13px; font-weight:700; cursor:pointer; }
+  .quick .qi{ font-size:21px; display:block; margin-bottom:5px; }
+  .hist-item{ display:flex; gap:10px; padding:11px 0; border-bottom:1px solid rgba(255,255,255,.06); align-items:center; }
+  .hist-item:last-child{ border-bottom:none; }
+  .hi-main{ flex:1; min-width:0; }
+  .hi-title{ font-size:14px; font-weight:700; }
+  .hi-sub{ font-size:12px; color:var(--mut); margin-top:1px; }
+  .hi-amt{ font-weight:800; font-size:14.5px; }
+  .pos{ color:var(--green); } .neg{ color:var(--red); }
+  .tag{ display:inline-block; font-size:10.5px; font-weight:800; padding:2.5px 8px; border-radius:999px; letter-spacing:.3px; }
+  .tag.won{ background:rgba(47,191,113,.16); color:var(--green); }
+  .tag.lost{ background:rgba(255,90,90,.14); color:var(--red); }
+  .tag.pend{ background:rgba(201,162,75,.16); color:var(--gold-hi); }
+  .tag.higher{ background:rgba(47,191,113,.16); color:var(--green); }
+  .tag.lower{ background:rgba(255,90,90,.14); color:var(--red); }
+  .empty{ color:var(--mut); font-size:13.5px; text-align:center; padding:16px 6px; }
+
+  /* ---------- trade ---------- */
+  .chips{ display:flex; gap:8px; margin-bottom:12px; }
+  .chips button{ flex:1; padding:10px 2px; border-radius:11px; border:1px solid var(--line); background:var(--card); color:var(--mut); font-weight:800; font-size:13px; cursor:pointer; }
+  .chips button.on{ background:linear-gradient(180deg, var(--gold-hi), var(--gold)); color:#231A02; border-color:transparent; }
+  .chart-box{ height:300px; border-radius:14px; overflow:hidden; border:1px solid var(--line); background:#0D1330; }
+  .stake-row{ display:flex; gap:10px; align-items:stretch; margin-top:13px; }
+  .stake-in{ flex:1; display:flex; align-items:center; background:var(--navy2); border:1px solid var(--line); border-radius:12px; padding:0 13px; }
+  .stake-in span{ color:var(--mut); font-weight:800; margin-right:5px; }
+  .stake-in input{ flex:1; background:none; border:none; color:var(--ink); font-size:18px; font-weight:800; outline:none; width:60px; padding:12px 0; }
+  .pay-tog{ display:flex; background:var(--navy2); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .pay-tog button{ border:none; background:none; color:var(--mut); font-weight:800; font-size:12.5px; padding:0 13px; cursor:pointer; }
+  .pay-tog button.on{ background:var(--gold); color:#231A02; }
+  .dir-row{ display:flex; gap:10px; margin-top:12px; }
+  .dir-row button{ flex:1; padding:16px; border:none; border-radius:14px; font-size:16px; font-weight:900; cursor:pointer; color:#fff; }
+  .dir-row button:disabled{ opacity:.5; }
+  .b-higher{ background:linear-gradient(180deg, #35CE7B, #1E9E57); }
+  .b-lower{ background:linear-gradient(180deg, #FF7070, #D93B3B); }
+  .switch-row{ display:flex; align-items:center; gap:9px; margin-top:13px; font-size:13.5px; color:var(--mut); }
+  .switch{ margin-left:auto; width:46px; height:27px; border-radius:999px; background:var(--navy2); border:1px solid var(--line); position:relative; cursor:pointer; flex:none; }
+  .switch::after{ content:""; position:absolute; top:2.5px; left:3px; width:20px; height:20px; border-radius:50%; background:var(--mut); transition:all .18s; }
+  .switch.on{ background:var(--gold); }
+  .switch.on::after{ left:21px; background:#231A02; }
+
+  /* ---------- mine ---------- */
+  .mine-stat{ display:flex; justify-content:space-between; padding:8px 0; border-bottom:1px solid rgba(255,255,255,.06); font-size:14px; }
+  .mine-stat:last-child{ border-bottom:none; }
+  .mine-stat .k{ color:var(--mut); } .mine-stat .v{ font-weight:800; }
+  .prog{ height:8px; background:var(--navy2); border-radius:99px; overflow:hidden; margin-top:8px; }
+  .prog i{ display:block; height:100%; background:linear-gradient(90deg, var(--gold), var(--gold-hi)); border-radius:99px; }
+
+  /* ---------- play ---------- */
+  .game-grid{ display:grid; grid-template-columns:1fr 1fr; gap:11px; }
+  .game-card{ background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px 13px; text-align:left; color:var(--ink); cursor:pointer; }
+  .game-card .gi{ font-size:27px; } .game-card .gt{ font-weight:800; font-size:15px; margin-top:6px; }
+  .game-card .gs{ font-size:12px; color:var(--mut); margin-top:2px; line-height:1.4; }
+  .wheel-wrap{ display:flex; justify-content:center; padding:8px 0 2px; }
+  .wheel{ width:210px; height:210px; border-radius:50%; border:5px solid var(--gold); position:relative; transition:transform 3.6s cubic-bezier(.12,.72,.08,1); background:conic-gradient(#C9A24B 0 30deg,#1A2560 30deg 60deg,#2FBF71 60deg 90deg,#1A2560 90deg 120deg,#8A6D2F 120deg 150deg,#1A2560 150deg 180deg,#C9A24B 180deg 210deg,#1A2560 210deg 240deg,#FF5A5A 240deg 270deg,#1A2560 270deg 300deg,#8A6D2F 300deg 330deg,#1A2560 330deg 360deg); }
+  .wheel::after{ content:"▲"; position:absolute; top:-24px; left:50%; transform:translateX(-50%); color:var(--gold-hi); font-size:17px; }
+  .wheel-c{ position:absolute; inset:64px; background:var(--navy); border:2px solid var(--gold); border-radius:50%; display:grid; place-items:center; font-weight:900; font-size:14px; color:var(--gold-hi); text-align:center; padding:4px; }
+  .av-mult{ font-size:52px; font-weight:900; text-align:center; margin:8px 0 0; }
+  .av-state{ text-align:center; color:var(--mut); font-size:13.5px; min-height:19px; }
+
+  /* ---------- earn ---------- */
+  .task{ display:flex; align-items:center; gap:12px; padding:12px 0; border-bottom:1px solid rgba(255,255,255,.06); }
+  .task:last-child{ border-bottom:none; }
+  .task .ti{ width:42px; height:42px; border-radius:12px; background:var(--navy2); border:1px solid var(--line); display:grid; place-items:center; font-size:21px; flex:none; }
+  .task .tt{ font-weight:700; font-size:14.5px; } .task .ts{ font-size:12px; color:var(--mut); }
+  .task .tr{ margin-left:auto; text-align:right; flex:none; }
+  .task .tbtn{ border:1px solid var(--gold); background:none; color:var(--gold-hi); font-weight:800; border-radius:999px; padding:7px 14px; font-size:12.5px; cursor:pointer; }
+  .task .tbtn.done{ background:var(--gold); color:#231A02; }
+  .buy-soon{ margin-top:14px; border:1.5px dashed var(--line); border-radius:13px; padding:14px; text-align:center; color:var(--mut); font-weight:700; opacity:.65; }
+
+  /* ---------- nav / toast ---------- */
+  .nav{ position:fixed; left:0; right:0; bottom:0; z-index:50; display:flex; background:rgba(13,19,54,.97); border-top:1px solid var(--line); padding-bottom:env(safe-area-inset-bottom); }
+  .nav button{ flex:1; background:none; border:none; color:var(--mut); padding:9px 2px 10px; font-size:10.5px; font-weight:700; cursor:pointer; }
+  .nav button .ni{ font-size:20px; display:block; margin-bottom:2px; }
+  .nav button.on{ color:var(--gold-hi); }
+  .toast{ position:fixed; left:50%; bottom:96px; transform:translateX(-50%) translateY(20px); background:#1E2A63; border:1px solid var(--gold); color:var(--ink); border-radius:13px; padding:12px 16px; font-size:13.5px; max-width:88vw; opacity:0; pointer-events:none; transition:all .25s; z-index:99; box-shadow:0 12px 30px rgba(0,0,0,.45); }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+  .toast b{ color:var(--gold-hi); }
+  iframe.chat{ width:100%; height:calc(100vh - 190px); border:1px solid var(--line); border-radius:14px; background:#fff; }
+</style>
+</head>
+<body>
+
+<!-- ================= AUTH ================= -->
+<div class="auth" id="authView">
+  <div class="auth-badge">
+    <svg width="58" height="58" viewBox="0 0 100 100"><circle cx="50" cy="50" r="43" fill="none" stroke="#C9A24B" stroke-width="5"/><rect x="26" y="46" width="9" height="15" fill="#F2D488"/><rect x="28.8" y="40" width="3.4" height="26" fill="#F2D488"/><rect x="39.5" y="36" width="10" height="22" fill="#F2D488"/><rect x="43.2" y="29" width="3.4" height="34" fill="#F2D488"/><rect x="53.5" y="31" width="9.5" height="19" fill="#F2D488"/><rect x="56.4" y="25" width="3.4" height="29" fill="#F2D488"/><path d="M66 68 V38 h-4 l8-13 8 13 h-4 v30 z" fill="#F2D488"/></svg>
+  </div>
+  <h1>TRYB<span>NETWORK</span></h1>
+  <p class="tag">TRADE · MINE · PLAY · EARN</p>
+  <div class="auth-card">
+    <div id="tgHello" class="small mut" style="margin-bottom:6px;"></div>
+    <label for="loginId">Username or email</label>
+    <input class="field" id="loginId" type="text" autocomplete="username" placeholder="your username">
+    <label for="loginPass">Password</label>
+    <input class="field" id="loginPass" type="password" autocomplete="current-password" placeholder="your password">
+    <div class="auth-err" id="loginErr"></div>
+    <button class="btn btn-gold" id="loginBtn" type="button">Sign in</button>
+    <button class="btn btn-ghost" id="createBtn" type="button">Create a TrybNetwork account</button>
+    <div class="auth-note">Same account as app.trybnetwork.com — your balances, miner and TrybCoin are shared.</div>
+  </div>
+</div>
+
+<!-- ================= APP ================= -->
+<div id="appView" class="hidden">
+  <div class="hdr">
+    <div class="hdr-av" id="hdrAv">T</div>
+    <div>
+      <div class="hdr-name" id="hdrName">Member</div>
+      <div class="hdr-sub" id="hdrSub">@username</div>
+    </div>
+    <div class="coin-pill"><span class="coin-dot">TN</span><span class="num" id="coinPill">0</span></div>
+  </div>
+
+  <!-- HOME -->
+  <div class="view" id="view-home">
+    <div class="card">
+      <div class="small mut" style="font-weight:700; letter-spacing:.5px;">TOTAL BALANCE</div>
+      <div class="bal-total num" id="totalBal">$0.00</div>
+      <div class="bal-row">
+        <div class="bal-cell"><div class="k">MAIN</div><div class="v num" id="balMain">$0.00</div></div>
+        <div class="bal-cell"><div class="k">MINING</div><div class="v num" id="balMining">$0.00</div></div>
+        <div class="bal-cell"><div class="k">TRYBCOIN</div><div class="v num" id="balCoins">0 TN</div></div>
+      </div>
+      <div class="small mut" id="lockInfo" style="margin-top:11px;"></div>
+      <div class="fund-row">
+        <button class="btn btn-gold" id="depBtn" type="button" style="margin:0;">Deposit</button>
+        <button class="btn btn-navy" id="wdBtn" type="button">Withdraw</button>
+      </div>
+      <div class="small mut" style="margin-top:9px; text-align:center;">Deposits &amp; withdrawals run in the full app for now.</div>
+    </div>
+
+    <div class="quick" style="margin-bottom:14px;">
+      <button data-go="trade"><span class="qi">📈</span>Trade</button>
+      <button data-go="mine"><span class="qi">⛏️</span>Mine</button>
+      <button data-go="play"><span class="qi">🎮</span>Play</button>
+      <button data-go="earn"><span class="qi">🪙</span>Earn</button>
+      <button data-go="chat"><span class="qi">💬</span>TrybChat</button>
+      <button id="fullAppBtn"><span class="qi">🌐</span>Full app</button>
+    </div>
+
+    <div class="card">
+      <h3>Fixed Savings</h3>
+      <div class="small mut">Lock Main Balance and earn a term return — 30d 2% · 90d 5% · 150d 12% · 365d 26%. $10 minimum, no early exit.</div>
+      <div id="savLots" style="margin-top:8px;"></div>
+      <div class="stake-row">
+        <div class="stake-in"><span>$</span><input id="savAmt" type="number" inputmode="decimal" placeholder="50" min="10"></div>
+      </div>
+      <div class="chips" id="savTiers" style="margin-top:10px;">
+        <button data-days="30">30 days · 2%</button><button data-days="90">90 days · 5%</button>
+        <button data-days="150" class="on">150 days · 12%</button><button data-days="365">365 days · 26%</button>
+      </div>
+      <button class="btn btn-gold" id="savBuy" type="button" style="margin-top:4px;">Save now</button>
+    </div>
+
+    <div class="card">
+      <h3>Recent activity</h3>
+      <div id="activityList"><div class="empty">Nothing yet.</div></div>
+    </div>
+    <button class="btn btn-ghost" id="logoutBtn" type="button" style="max-width:560px; margin:0 auto; display:block;">Sign out</button>
+  </div>
+
+  <!-- TRADE -->
+  <div class="view hidden" id="view-trade">
+    <div class="chips" id="assetChips">
+      <button data-asset="BTCUSD" class="on">BTCUSD</button><button data-asset="ETHUSD">ETHUSD</button>
+      <button data-asset="EURUSD">EURUSD</button><button data-asset="XAUUSD">XAUUSD</button>
+    </div>
+    <div class="chart-box"><div id="tvChart" style="width:100%; height:100%;"></div></div>
+    <div class="card" style="margin-top:14px;">
+      <div class="stake-row" style="margin-top:0;">
+        <div class="stake-in"><span id="stakeCur">$</span><input id="stakeAmt" type="number" inputmode="decimal" value="1" min="1"></div>
+        <div class="pay-tog"><button id="payMain" class="on" type="button">Main $</button><button id="payCoin" type="button">TrybCoin</button></div>
+      </div>
+      <div class="small mut" id="payoutInfo" style="margin-top:9px;"></div>
+      <div class="dir-row">
+        <button class="b-higher" id="btnHigher" type="button">▲ Higher</button>
+        <button class="b-lower" id="btnLower" type="button">▼ Lower</button>
+      </div>
+      <div class="switch-row"><span>Martingale — double stake after a loss</span><div class="switch" id="mgToggle" role="switch" aria-checked="false"></div></div>
+    </div>
+    <div class="card">
+      <h3>Open bids</h3>
+      <div id="openBids"><div class="empty">No open bids.</div></div>
+    </div>
+    <div class="card">
+      <h3>Bid history</h3>
+      <div id="bidHistory"><div class="empty">No closed bids yet.</div></div>
+    </div>
+  </div>
+
+  <!-- MINE -->
+  <div class="view hidden" id="view-mine">
+    <div class="card" id="minerCard"></div>
+    <div class="card">
+      <h3>Buy / top up</h3>
+      <div class="small mut">One miner — 2% per 24h cycle, $5 min / $50,000 max. Top-ups stack onto your rig; the contract runs 5 months from first purchase.</div>
+      <div class="stake-row">
+        <div class="stake-in"><span>$</span><input id="mineAmt" type="number" inputmode="decimal" placeholder="50" min="5"></div>
+      </div>
+      <button class="btn btn-gold" id="mineBuyBtn" type="button">Buy miner</button>
+    </div>
+  </div>
+
+  <!-- PLAY -->
+  <div class="view hidden" id="view-play">
+    <div class="game-grid">
+      <button class="game-card" id="gcSpin"><span class="gi">🎡</span><div class="gt">Spin Wheel</div><div class="gs">Spin for cash prizes — up to 10× your stake.</div></button>
+      <button class="game-card" id="gcAviator"><span class="gi">🚀</span><div class="gt">Aviator</div><div class="gs">Ride the multiplier and cash out before it flies away.</div></button>
+      <button class="game-card" id="gcFull1"><span class="gi">🃏</span><div class="gt">Whot &amp; Ayo</div><div class="gs">Card and board classics, plus PvP duels — in the full app.</div></button>
+      <button class="game-card" id="gcFull2"><span class="gi">⚔️</span><div class="gt">PvP Duels</div><div class="gs">Challenge friends head-to-head — in the full app.</div></button>
+    </div>
+
+    <div class="card hidden" id="spinPanel" style="margin-top:14px;">
+      <h3>🎡 Spin Wheel</h3>
+      <div class="wheel-wrap"><div class="wheel" id="spinWheel"><div class="wheel-c" id="spinCenter">SPIN</div></div></div>
+      <div class="av-state" id="spinResult">Prizes: 2× · 10× · $1 · $0.50 · stake back</div>
+      <div class="stake-row">
+        <div class="stake-in"><span>$</span><input id="spinStake" type="number" inputmode="decimal" value="1" min="1"></div>
+        <div class="pay-tog"><button id="spinPayMain" class="on" type="button">Main $</button><button id="spinPayCoin" type="button">TrybCoin</button></div>
+      </div>
+      <button class="btn btn-gold" id="spinBtn" type="button">Spin</button>
+    </div>
+
+    <div class="card hidden" id="avPanel" style="margin-top:14px;">
+      <h3>🚀 Aviator</h3>
+      <div class="av-mult num" id="avMult">1.00×</div>
+      <div class="av-state" id="avState">Place your stake and take off.</div>
+      <div class="stake-row">
+        <div class="stake-in"><span>$</span><input id="avStake" type="number" inputmode="decimal" value="1" min="1"></div>
+        <div class="pay-tog"><button id="avPayMain" class="on" type="button">Main $</button><button id="avPayCoin" type="button">TrybCoin</button></div>
+      </div>
+      <button class="btn btn-gold" id="avBtn" type="button">Take off</button>
+    </div>
+  </div>
+
+  <!-- EARN -->
+  <div class="view hidden" id="view-earn">
+    <div class="card" style="text-align:center;">
+      <div class="small mut" style="font-weight:700; letter-spacing:.5px;">TRYBCOIN BALANCE</div>
+      <div class="bal-total num" id="earnCoinBal" style="color:var(--gold-hi);">0 TN</div>
+      <div class="small mut">Spend TrybCoin on trades, games and mining with the Pay-with toggle. Coin-funded wins pay profit to Main Balance.</div>
+      <div class="buy-soon">Buy TrybCoin — coming soon!</div>
+    </div>
+    <div class="card">
+      <h3>Earn TrybCoin</h3>
+      <div class="small mut">Complete all 10 tasks for 1,000 TN, then tap Completed and share your proof with the admin.</div>
+      <div id="earnTasks"></div>
+      <button class="btn btn-gold" id="earnDoneBtn" type="button">Completed — claim 1,000 TN</button>
+      <div class="small mut hidden" id="earnProof" style="margin-top:11px; text-align:center;">
+        Request sent! Now share your proof (screenshots) with the admin:
+        <button class="btn btn-navy" id="proofBtn" type="button" style="width:100%; margin-top:8px;">Share proof on Telegram</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- CHAT -->
+  <div class="view hidden" id="view-chat">
+    <div class="card">
+      <h3>💬 TrybChat</h3>
+      <div class="small mut">Chat is always free — and every real message you send earns TrybCoin. Sign in once below with your TrybNetwork account.</div>
+      <button class="btn btn-gold" id="chatOpenBtn" type="button">Open TrybChat full screen</button>
+    </div>
+    <iframe class="chat" id="chatFrame" title="TrybChat" loading="lazy"></iframe>
+  </div>
+
+  <div class="nav" id="tabNav">
+    <button data-view="home" class="on"><span class="ni">🏠</span>Home</button>
+    <button data-view="trade"><span class="ni">📈</span>Trade</button>
+    <button data-view="mine"><span class="ni">⛏️</span>Mine</button>
+    <button data-view="play"><span class="ni">🎮</span>Play</button>
+    <button data-view="earn"><span class="ni">🪙</span>Earn</button>
+    <button data-view="chat"><span class="ni">💬</span>Chat</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+"use strict";
+/* ================= TrybNetwork — Telegram Mini App =================
+   Same Supabase backend and money flows as app.trybnetwork.com:
+   wallets upsert client-side, bids settle via the atomic payout claim,
+   miner cycles credit profit_24h per 24h, referral shares ledger-first. */
+var SUPABASE_URL = "https://zvubytosshkxpbpvgcsw.supabase.co";
+var SUPABASE_ANON_KEY = "sb_publishable_c1sl1Mw4Y5EMWjkmYSzEow_m5Yowqk0";
+var sb = null;
+try { sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null; } catch(e){ sb = null; }
+
+var TG = (window.Telegram && window.Telegram.WebApp) ? window.Telegram.WebApp : null;
+if (TG){ try { TG.ready(); TG.expand(); } catch(e){} }
+function tgUser(){ return (TG && TG.initDataUnsafe && TG.initDataUnsafe.user) || null; }
+function haptic(kind){
+  if (!TG || !TG.HapticFeedback) return;
+  try {
+    if (kind === "win" || kind === "err") TG.HapticFeedback.notificationOccurred(kind === "win" ? "success" : "error");
+    else TG.HapticFeedback.impactOccurred("light");
+  } catch(e){}
+}
+function openExt(url){
+  if (TG && TG.openLink) TG.openLink(url); else window.open(url, "_blank");
+}
+
+function $(id){ return document.getElementById(id); }
+function esc(s){ return String(s == null ? "" : s).replace(/[&<>"']/g, function(c){ return { "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;", "'":"&#39;" }[c]; }); }
+function fmtUSD(n){ n = Number(n) || 0; return (n < 0 ? "-$" : "$") + Math.abs(n).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+function fmtTN(n){ return Math.round(Number(n) || 0).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ","); }
+function fmtTime(ts){ var d = new Date(ts); return d.toLocaleDateString("en-GB", { day:"numeric", month:"short" }) + " · " + d.toLocaleTimeString("en-US", { hour:"numeric", minute:"2-digit" }); }
+function round2(n){ return Math.round((Number(n) || 0) * 100) / 100; }
+var toastTimer = null;
+function toast(title, sub){
+  var t = $("toast");
+  t.innerHTML = "<b>" + esc(title) + "</b>" + (sub ? "<br>" + esc(sub) : "");
+  t.classList.add("show");
+  if (toastTimer) clearTimeout(toastTimer);
+  toastTimer = setTimeout(function(){ t.classList.remove("show"); }, 4200);
+}
+
+/* ================= constants (mirror the main app) ================= */
+var PAYOUT_RATE = 0.9;
+var BONUS_UNLOCK_VOLUME = 10;
+var AUTO_WIN_RATE = 0.4;
+var REFERRAL_SHARE_RATE = 0.01;
+var CYCLE_MS = 24 * 3600 * 1000;
+var WEEK_MS = 7 * 24 * 3600 * 1000;
+var MINER = { name: "Miner", min: 5, max: 50000, rate: 0.02, lockDays: 7 };
+var INVEST_TIERS = [
+  { days: 365, rate: 26, label: "365 Days" }, { days: 150, rate: 12, label: "150 Days" },
+  { days: 90, rate: 5, label: "90 Days" }, { days: 30, rate: 2, label: "30 Days" }
+];
+var INVEST_MIN = 10;
+var ASSETS = {
+  BTCUSD: { tv: "COINBASE:BTCUSD" }, ETHUSD: { tv: "COINBASE:ETHUSD" },
+  EURUSD: { tv: "FX:EURUSD" }, XAUUSD: { tv: "OANDA:XAUUSD" }
+};
+var FULL_APP = "https://app.trybnetwork.com";
+var CHAT_APP = "https://chat.trybnetwork.com";
+var ADMIN_TG_DM = "https://t.me/Trybnetwork";
+
+/* ================= state ================= */
+var S = {
+  user: null, profile: null, main: 0, coins: 0,
+  bonusTraded: 0, bonusLocked: true, wagering: 0,
+  miner: null, bids: [], trades: [], requests: [], lots: [],
+  stakeSource: "main", mgOn: false, mgStep: 0,
+  asset: "BTCUSD", savDays: 150, bidMode: "manual", tvReady: false
+};
+try {
+  S.stakeSource = localStorage.getItem("tg_pay_source") || "main";
+  S.mgOn = localStorage.getItem("tg_mg_on") === "1";
+} catch(e){}
+
+function dirToDb(d){ return d === "higher" ? "high" : "low"; }
+function dirFromDb(d){ return d === "high" ? "higher" : "lower"; }
+
+/* ================= wallet / ledger primitives ================= */
+function persistWallet(){
+  if (!sb || !S.user) return Promise.resolve(false);
+  var payload = { user_id: S.user.id, main_balance: round2(S.main), traded_volume: S.bonusTraded,
+                  bonus_locked: S.bonusLocked, updated_at: new Date().toISOString() };
+  return sb.from("tn_wallets").upsert(payload).then(function(r){ return !r.error; }).catch(function(){ return false; });
+}
+function persistCoins(){
+  if (!sb || !S.user) return Promise.resolve(false);
+  return sb.from("tn_wallets").update({ trybcoin: Math.round(S.coins), updated_at: new Date().toISOString() })
+    .eq("user_id", S.user.id).then(function(r){ return !r.error; }).catch(function(){ return false; });
+}
+function addWagering(amount){
+  amount = round2(amount);
+  if (!(amount > 0) || !sb || !S.user) return;
+  S.wagering = round2((Number(S.wagering) || 0) + amount);
+  sb.from("tn_profiles").update({ wagering_volume: S.wagering }).eq("id", S.user.id).then(function(){}).catch(function(){});
+}
+function deductStake(usd){
+  usd = round2(usd);
+  if (!(usd > 0)) return { ok: false };
+  if (S.stakeSource === "trybcoin"){
+    var need = Math.round(usd * 1000);
+    if (Math.round(S.coins) < need){ toast("Not enough TrybCoin", "You need " + fmtTN(need) + " TN for a " + fmtUSD(usd) + " stake."); return { ok: false }; }
+    S.coins -= need;
+    persistCoins();
+    return { ok: true, source: "trybcoin" };
+  }
+  if (round2(S.main) < usd){ toast("Insufficient balance", "Your Main Balance is " + fmtUSD(S.main) + "."); return { ok: false }; }
+  S.main = round2(S.main - usd);
+  persistWallet();
+  return { ok: true, source: "main" };
+}
+function creditReferralShare(sourceType, sourceId, profit){
+  if (!sb || !S.user || !(profit > 0)) return Promise.resolve(false);
+  var amount = Math.round(profit * REFERRAL_SHARE_RATE * 10000) / 10000;
+  if (!(amount > 0)) return Promise.resolve(false);
+  return sb.from("tn_referrals").select("referrer_id").eq("referred_id", S.user.id).limit(1).then(function(res){
+    var ref = (res.data || [])[0];
+    if (!ref || !ref.referrer_id) return false;
+    var referrerId = ref.referrer_id;
+    return sb.from("tn_referral_earnings").upsert(
+      { source_type: sourceType, source_id: String(sourceId), referrer_id: referrerId, referred_id: S.user.id, amount: amount },
+      { onConflict: "source_type,source_id", ignoreDuplicates: true }).select("id").then(function(ins){
+        if (ins.error || !ins.data || !ins.data.length) return false;
+        return sb.from("tn_wallets").select("main_balance").eq("user_id", referrerId).maybeSingle().then(function(w){
+          if (w.error || !w.data) return false;
+          var bal = round2((Number(w.data.main_balance) || 0) + amount);
+          return sb.from("tn_wallets").update({ main_balance: bal, updated_at: new Date().toISOString() }).eq("user_id", referrerId)
+            .then(function(u){ return !u.error; });
+        });
+      });
+  }).catch(function(){ return false; });
+}
+function miningCreditAdd(amt){
+  try {
+    var k = "tn_mining_credit_" + S.user.id;
+    var v = (parseFloat(localStorage.getItem(k)) || 0) + amt;
+    localStorage.setItem(k, String(round2(v)));
+  } catch(e){}
+}
+
+/* ================= data loading ================= */
+function mapMiner(r){
+  if (!r) return null;
+  return {
+    price: Number(r.purchase_price) || 0, profit: Number(r.profit_24h) || 0,
+    balance: Number(r.mining_balance) || 0,
+    contractAt: r.created_at ? new Date(r.created_at).getTime() : Date.now(),
+    purchasedAt: r.purchased_at ? new Date(r.purchased_at).getTime() : Date.now(),
+    startedAt: r.miner_started_at ? new Date(r.miner_started_at).getTime() : null,
+    status: r.miner_status === "running" ? "running" : "idle"
+  };
+}
+function persistMiner(){
+  if (!sb || !S.user || !S.miner) return Promise.resolve(false);
+  var m = S.miner;
+  var row = { user_id: S.user.id, tier: MINER.name, purchase_price: m.price, profit_24h: m.profit,
+    mining_balance: round2(m.balance), purchased_at: new Date(m.purchasedAt).toISOString(),
+    created_at: new Date(m.contractAt).toISOString(),
+    miner_started_at: m.startedAt ? new Date(m.startedAt).toISOString() : null, miner_status: m.status };
+  return sb.from("tn_miners").upsert(row).then(function(r){ return !r.error; }).catch(function(){ return false; });
+}
+function loadAll(silent){
+  if (!sb || !S.user) return Promise.resolve(false);
+  return Promise.all([
+    sb.from("tn_profiles").select("*").eq("id", S.user.id).maybeSingle(),
+    sb.from("tn_wallets").select("*").eq("user_id", S.user.id).maybeSingle(),
+    sb.from("tn_miners").select("*").eq("user_id", S.user.id).maybeSingle(),
+    sb.from("tn_requests").select("*").eq("user_id", S.user.id).order("created_at", { ascending: false }).limit(40),
+    sb.from("tn_bids").select("*").eq("user_id", S.user.id).order("created_at", { ascending: false }).limit(60),
+    sb.from("tn_savings_lots").select("*").eq("user_id", S.user.id).order("created_at", { ascending: false })
+  ]).then(function(res){
+    var prof = res[0], wal = res[1], min = res[2], reqs = res[3], bids = res[4], lots = res[5];
+    if (prof.error || wal.error || !prof.data){ if (!silent) toast("Couldn't load your account", "Check your connection and try again."); return false; }
+    S.profile = prof.data;
+    S.wagering = Number(prof.data.wagering_volume) || 0;
+    S.main = wal.data ? Number(wal.data.main_balance) || 0 : 0;
+    S.coins = wal.data ? Number(wal.data.trybcoin) || 0 : 0;
+    S.bonusTraded = wal.data ? Number(wal.data.traded_volume) || 0 : 0;
+    S.bonusLocked = wal.data ? !!wal.data.bonus_locked : true;
+    S.miner = mapMiner(min.data);
+    S.requests = reqs.data || [];
+    var rows = bids.data || [];
+    S.bids = rows.filter(function(b){ return b.status === "pending"; }).map(function(b){
+      return { id: b.id, asset: b.asset, dir: dirFromDb(b.direction), stake: Number(b.stake) || 0,
+               stake_source: b.stake_source || "main", time: b.created_at ? new Date(b.created_at).getTime() : Date.now() };
+    });
+    S.trades = rows.filter(function(b){ return b.status === "won" || b.status === "lost"; }).map(function(b){
+      var stake = Number(b.stake) || 0, won = b.status === "won";
+      return { id: b.id, asset: b.asset, dir: dirFromDb(b.direction), stake: stake, result: b.status,
+               pnl: won ? stake * PAYOUT_RATE : -stake,
+               closedAt: b.decided_at ? new Date(b.decided_at).getTime() : Date.now() };
+    });
+    S.lots = (lots.data || []).map(function(l){
+      return { id: l.id, amount: Number(l.amount) || 0,
+               createdAt: l.created_at ? new Date(l.created_at).getTime() : Date.now(),
+               unlockAt: l.unlock_at ? new Date(l.unlock_at).getTime() : 0 };
+    });
+    renderAll();
+    settleUnpaidBids();
+    settleSavings();
+    checkMinerCycle();
+    loadBidMode();
+    return true;
+  }).catch(function(){ return false; });
+}
+function loadBidMode(){
+  if (!sb) return;
+  sb.from("tn_settings").select("*").eq("key", "bid_settlement_mode").maybeSingle().then(function(r){
+    var v = (!r.error && r.data) ? r.data.value : null;
+    S.bidMode = String(v) === "auto" ? "auto" : "manual";
+  }).catch(function(){});
+}
+
+/* ================= rendering: shell + home ================= */
+function renderHeader(){
+  var name = S.profile ? (S.profile.full_name || "Member") : "Member";
+  var un = S.profile ? (S.profile.username || "") : "";
+  var tu = tgUser();
+  $("hdrName").textContent = name;
+  $("hdrSub").textContent = un ? "@" + un : (tu && tu.username ? "Telegram @" + tu.username : "");
+  var av = $("hdrAv");
+  if (tu && tu.photo_url){ av.innerHTML = '<img src="' + esc(tu.photo_url) + '" alt="">'; }
+  else av.textContent = (name || "T").charAt(0).toUpperCase();
+  $("coinPill").textContent = fmtTN(S.coins);
+}
+function totalBalance(){
+  return round2(S.main + (S.miner ? S.miner.balance : 0) + (Number(S.coins) || 0) / 1000);
+}
+function approvedDeposits(){
+  return S.requests.filter(function(r){ return r.type === "deposit" && r.status === "approved"; })
+    .reduce(function(a, r){ return a + (Number(r.amount) || 0); }, 0);
+}
+function renderHome(){
+  $("totalBal").textContent = fmtUSD(totalBalance());
+  $("balMain").textContent = fmtUSD(S.main);
+  $("balMining").textContent = fmtUSD(S.miner ? S.miner.balance : 0);
+  $("balCoins").textContent = fmtTN(S.coins) + " TN";
+  var locked = Math.max(0, round2(approvedDeposits() - S.wagering));
+  var li = $("lockInfo");
+  if (S.bonusLocked) li.innerHTML = "Welcome bonus locked — trade " + fmtUSD(Math.max(0, BONUS_UNLOCK_VOLUME - S.bonusTraded)) + " more in volume to unlock it.";
+  else if (locked > 0) li.innerHTML = "Withdrawals: " + fmtUSD(Math.max(0, round2(S.main - locked))) + " available · " + fmtUSD(locked) + " locked until you trade more (deposits − wagering).";
+  else li.innerHTML = "Withdrawals fully unlocked.";
+  renderSavings();
+  renderActivity();
+}
+function investTierForDays(days){
+  var best = INVEST_TIERS[INVEST_TIERS.length - 1], bd = Infinity;
+  INVEST_TIERS.forEach(function(t){ var d = Math.abs(t.days - days); if (d < bd){ bd = d; best = t; } });
+  return best;
+}
+function renderSavings(){
+  var el = $("savLots");
+  if (!S.lots.length){ el.innerHTML = '<div class="empty">No active savings yet.</div>'; return; }
+  el.innerHTML = S.lots.map(function(l){
+    var days = Math.round((l.unlockAt - l.createdAt) / 86400000);
+    var tier = investTierForDays(days);
+    var y = round2(l.amount * tier.rate / 100);
+    return '<div class="hist-item"><div class="hi-main"><div class="hi-title num">' + fmtUSD(l.amount) +
+      ' <span class="tag pend">' + tier.label + " · " + tier.rate + '%</span></div>' +
+      '<div class="hi-sub">Unlocks ' + fmtTime(l.unlockAt) + ' · <span data-unlock="' + l.unlockAt + '"></span></div></div>' +
+      '<div class="hi-amt pos num">+' + fmtUSD(y) + "</div></div>";
+  }).join("");
+}
+function renderActivity(){
+  var items = [];
+  S.requests.slice(0, 12).forEach(function(r){
+    var t = r.type === "withdrawal" ? "Withdrawal" : "Deposit";
+    var st = r.status === "approved" ? '<span class="tag won">Approved</span>' : r.status === "rejected" ? '<span class="tag lost">Rejected</span>' : '<span class="tag pend">Pending</span>';
+    items.push({ time: r.created_at ? new Date(r.created_at).getTime() : 0,
+      html: '<div class="hist-item"><div class="hi-main"><div class="hi-title">' + t + " " + st + '</div><div class="hi-sub">' + fmtTime(r.created_at ? new Date(r.created_at).getTime() : Date.now()) + '</div></div><div class="hi-amt num">' + fmtUSD(r.amount) + "</div></div>" });
+  });
+  S.trades.slice(0, 8).forEach(function(t){
+    items.push({ time: t.closedAt, html: '<div class="hist-item"><div class="hi-main"><div class="hi-title">' + esc(t.asset) +
+      ' <span class="tag ' + t.dir + '">' + (t.dir === "higher" ? "Higher" : "Lower") + '</span> <span class="tag ' + (t.result === "won" ? "won" : "lost") + '">' + (t.result === "won" ? "Won" : "Lost") + '</span></div>' +
+      '<div class="hi-sub">Stake ' + fmtUSD(t.stake) + " · " + fmtTime(t.closedAt) + '</div></div><div class="hi-amt num ' + (t.pnl > 0 ? "pos" : "neg") + '">' + (t.pnl > 0 ? "+" : "") + fmtUSD(t.pnl) + "</div></div>" });
+  });
+  items.sort(function(a, b){ return b.time - a.time; });
+  $("activityList").innerHTML = items.length ? items.slice(0, 12).map(function(i){ return i.html; }).join("") : '<div class="empty">Nothing yet.</div>';
+}
+function renderAll(){
+  renderHeader(); renderHome(); renderTrade(); renderMiner(); renderEarn();
+}
+
+/* ================= navigation ================= */
+var currentView = "home";
+function showView(v){
+  currentView = v;
+  ["home", "trade", "mine", "play", "earn", "chat"].forEach(function(x){
+    $("view-" + x).classList.toggle("hidden", x !== v);
+  });
+  var btns = $("tabNav").querySelectorAll("button");
+  btns.forEach(function(b){ b.classList.toggle("on", b.getAttribute("data-view") === v); });
+  if (v === "trade") initChart();
+  if (v === "chat" && !$("chatFrame").getAttribute("src")) $("chatFrame").setAttribute("src", CHAT_APP);
+  window.scrollTo(0, 0);
+}
+$("tabNav").addEventListener("click", function(e){
+  var b = e.target.closest("button[data-view]");
+  if (b){ haptic(); showView(b.getAttribute("data-view")); }
+});
+document.querySelectorAll("[data-go]").forEach(function(b){
+  b.addEventListener("click", function(){ haptic(); showView(b.getAttribute("data-go")); });
+});
+$("fullAppBtn").addEventListener("click", function(){ openExt(FULL_APP); });
+$("depBtn").addEventListener("click", function(){ openExt(FULL_APP); });
+$("wdBtn").addEventListener("click", function(){ openExt(FULL_APP); });
+$("chatOpenBtn").addEventListener("click", function(){ openExt(CHAT_APP); });
+$("createBtn").addEventListener("click", function(){ openExt(FULL_APP); });
+
+/* ================= auth ================= */
+function enterApp(){
+  $("authView").classList.add("hidden");
+  $("appView").classList.remove("hidden");
+  loadAll(false);
+}
+function signIn(){
+  var idVal = $("loginId").value.trim();
+  var pass = $("loginPass").value;
+  var err = $("loginErr");
+  err.style.display = "none";
+  if (!idVal || !pass){ err.textContent = "Enter your username/email and password."; err.style.display = "block"; return; }
+  if (!sb){ err.textContent = "Connection unavailable — try again in a moment."; err.style.display = "block"; return; }
+  var btn = $("loginBtn");
+  btn.disabled = true; btn.textContent = "Signing in…";
+  function fail(msg){ btn.disabled = false; btn.textContent = "Sign in"; err.textContent = msg; err.style.display = "block"; haptic("err"); }
+  function withEmail(email){
+    sb.auth.signInWithPassword({ email: email, password: pass }).then(function(r){
+      if (r.error){ fail("Sign-in failed — check your details and try again."); return; }
+      S.user = r.data.user;
+      btn.disabled = false; btn.textContent = "Sign in";
+      haptic("win");
+      enterApp();
+    }).catch(function(){ fail("Network error — try again."); });
+  }
+  if (idVal.indexOf("@") > -1) withEmail(idVal);
+  else {
+    sb.rpc("tn_email_for_username", { p_username: idVal }).then(function(r){
+      var email = (!r.error && r.data) ? String(r.data) : "";
+      if (!email){ fail("No account with that username."); return; }
+      withEmail(email);
+    }).catch(function(){ fail("Network error — try again."); });
+  }
+}
+$("loginBtn").addEventListener("click", signIn);
+$("loginPass").addEventListener("keydown", function(e){ if (e.key === "Enter") signIn(); });
+$("logoutBtn").addEventListener("click", function(){
+  if (sb) sb.auth.signOut();
+  S.user = null;
+  $("appView").classList.add("hidden");
+  $("authView").classList.remove("hidden");
+});
+(function boot(){
+  var tu = tgUser();
+  if (tu) $("tgHello").textContent = "👋 Hi " + (tu.first_name || "there") + " — sign in with your TrybNetwork account to continue.";
+  if (!sb) return;
+  sb.auth.getSession().then(function(r){
+    if (r.data && r.data.session){ S.user = r.data.session.user; enterApp(); }
+  }).catch(function(){});
+})();
+setInterval(function(){
+  if (!S.user) return;
+  // live countdowns (savings unlocks)
+  document.querySelectorAll("[data-unlock]").forEach(function(el){
+    var ms = Number(el.getAttribute("data-unlock")) - Date.now();
+    if (ms <= 0){ el.textContent = "matured — settling…"; return; }
+    var d = Math.floor(ms / 86400000), h = Math.floor(ms % 86400000 / 3600000), m = Math.floor(ms % 3600000 / 60000);
+    el.textContent = d > 0 ? d + "d " + h + "h left" : h > 0 ? h + "h " + m + "m left" : m + "m left";
+  });
+  renderMinerTick();
+}, 1000);
+setInterval(function(){ if (S.user) loadAll(true); }, 30000);
+document.addEventListener("visibilitychange", function(){ if (!document.hidden && S.user) loadAll(true); });
+
+/* ================= TRADE ================= */
+function effectiveStake(){
+  var base = parseFloat($("stakeAmt").value) || 0;
+  if (S.mgOn && S.mgStep > 0) return round2(base * Math.pow(2, S.mgStep));
+  return round2(base);
+}
+function syncPayToggles(){
+  [["payMain", "payCoin", "main"], ["spinPayMain", "spinPayCoin", "main"], ["avPayMain", "avPayCoin", "main"]].forEach(function(t){
+    var a = $(t[0]), b = $(t[1]);
+    if (a) a.classList.toggle("on", S.stakeSource === "main");
+    if (b) b.classList.toggle("on", S.stakeSource === "trybcoin");
+  });
+  var sc = $("stakeCur");
+  if (sc) sc.textContent = S.stakeSource === "trybcoin" ? "TN$" : "$";
+}
+function setStakeSource(src){
+  S.stakeSource = src;
+  try { localStorage.setItem("tg_pay_source", src); } catch(e){}
+  syncPayToggles(); renderPayoutInfo();
+}
+$("payMain").addEventListener("click", function(){ setStakeSource("main"); });
+$("payCoin").addEventListener("click", function(){ setStakeSource("trybcoin"); });
+$("stakeAmt").addEventListener("input", renderPayoutInfo);
+function renderPayoutInfo(){
+  var stake = effectiveStake();
+  var el = $("payoutInfo");
+  if (!(stake > 0)){ el.textContent = "Enter a stake to see the payout."; return; }
+  if (S.stakeSource === "trybcoin")
+    el.innerHTML = "Stake <b>" + fmtUSD(stake) + "</b> in TrybCoin (" + fmtTN(stake * 1000) + " TN) · a win pays <b>" + fmtUSD(stake * PAYOUT_RATE) + "</b> profit to Main Balance.";
+  else
+    el.innerHTML = "Stake <b>" + fmtUSD(stake) + "</b> · a win pays <b>" + fmtUSD(stake * (1 + PAYOUT_RATE)) + "</b> (" + fmtUSD(stake * PAYOUT_RATE) + " profit) · 90% payout.";
+  if (S.mgOn && S.mgStep > 0) el.innerHTML += " Martingale step " + S.mgStep + ".";
+}
+function renderTrade(){
+  syncPayToggles(); renderPayoutInfo();
+  $("mgToggle").classList.toggle("on", S.mgOn);
+  $("mgToggle").setAttribute("aria-checked", S.mgOn ? "true" : "false");
+  var ob = $("openBids");
+  ob.innerHTML = S.bids.length ? S.bids.map(function(b){
+    return '<div class="hist-item"><div class="hi-main"><div class="hi-title">' + esc(b.asset) +
+      ' <span class="tag ' + b.dir + '">' + (b.dir === "higher" ? "Higher" : "Lower") + '</span> <span class="tag pend">Awaiting result</span></div>' +
+      '<div class="hi-sub">Stake ' + fmtUSD(b.stake) + (b.stake_source === "trybcoin" ? " · TrybCoin" : "") + " · " + fmtTime(b.time) + '</div></div>' +
+      '<div class="hi-amt num">' + fmtUSD(b.stake * (1 + PAYOUT_RATE)) + "</div></div>";
+  }).join("") : '<div class="empty">No open bids.</div>';
+  var bh = $("bidHistory");
+  bh.innerHTML = S.trades.length ? S.trades.slice(0, 20).map(function(t){
+    return '<div class="hist-item"><div class="hi-main"><div class="hi-title">' + esc(t.asset) +
+      ' <span class="tag ' + t.dir + '">' + (t.dir === "higher" ? "Higher" : "Lower") + '</span> <span class="tag ' + (t.result === "won" ? "won" : "lost") + '">' + (t.result === "won" ? "Won" : "Lost") + '</span></div>' +
+      '<div class="hi-sub">Stake ' + fmtUSD(t.stake) + " · " + fmtTime(t.closedAt) + '</div></div>' +
+      '<div class="hi-amt num ' + (t.pnl > 0 ? "pos" : "neg") + '">' + (t.pnl > 0 ? "+" : "") + fmtUSD(t.pnl) + "</div></div>";
+  }).join("") : '<div class="empty">No closed bids yet.</div>';
+}
+$("mgToggle").addEventListener("click", function(){
+  S.mgOn = !S.mgOn;
+  if (!S.mgOn) S.mgStep = 0;
+  try { localStorage.setItem("tg_mg_on", S.mgOn ? "1" : "0"); } catch(e){}
+  renderTrade();
+});
+function initChart(){
+  if (typeof TradingView === "undefined" || !TradingView.widget) return;
+  if (S.tvReady && S.tvAsset === S.asset) return;
+  S.tvReady = true; S.tvAsset = S.asset;
+  try {
+    new TradingView.widget({ container_id: "tvChart", symbol: ASSETS[S.asset].tv, interval: "15",
+      theme: "dark", style: "1", locale: "en", autosize: true, allow_symbol_change: false,
+      hide_side_toolbar: false, save_image: false });
+  } catch(e){}
+}
+$("assetChips").addEventListener("click", function(e){
+  var b = e.target.closest("button[data-asset]");
+  if (!b) return;
+  S.asset = b.getAttribute("data-asset");
+  $("assetChips").querySelectorAll("button").forEach(function(x){ x.classList.toggle("on", x === b); });
+  S.tvReady = false;
+  $("tvChart").innerHTML = "";
+  initChart();
+});
+var bidBusy = false;
+function placeBid(dir){
+  if (bidBusy) return;
+  if (!sb || !S.user){ toast("Not signed in", "Sign in again to place a bid."); return; }
+  var stake = effectiveStake();
+  if (!(stake > 0)){ toast("Enter a stake first", "Set a stake above $0."); return; }
+  var prevMain = S.main, prevCoins = S.coins, prevTraded = S.bonusTraded, prevLocked = S.bonusLocked;
+  var dd = deductStake(stake);
+  if (!dd.ok) { renderAll(); return; }
+  bidBusy = true;
+  $("btnHigher").disabled = true; $("btnLower").disabled = true;
+  S.bonusTraded = round2(S.bonusTraded + stake);
+  if (S.bonusTraded >= BONUS_UNLOCK_VOLUME) S.bonusLocked = false;
+  var asset = S.asset;
+  sb.from("tn_bids").insert({ user_id: S.user.id, asset: asset, direction: dirToDb(dir), stake: stake,
+    status: "pending", stake_source: dd.source }).select().single().then(function(res){
+      if (res.error) throw res.error;
+      var row = res.data;
+      S.bids.unshift({ id: row.id, asset: asset, dir: dir, stake: stake, stake_source: dd.source,
+        time: row.created_at ? new Date(row.created_at).getTime() : Date.now() });
+      addWagering(stake);
+      return persistWallet();
+    }).then(function(){
+      bidBusy = false; $("btnHigher").disabled = false; $("btnLower").disabled = false;
+      haptic();
+      toast("Bid placed · " + asset + " " + (dir === "higher" ? "Higher" : "Lower"), "Stake " + fmtUSD(stake) + " locked · awaiting result.");
+      renderAll();
+    }).catch(function(){
+      bidBusy = false; $("btnHigher").disabled = false; $("btnLower").disabled = false;
+      S.main = prevMain; S.coins = prevCoins; S.bonusTraded = prevTraded; S.bonusLocked = prevLocked;
+      persistWallet(); persistCoins();
+      toast("Bid failed", "Your stake was restored — check your connection.");
+      renderAll();
+    });
+}
+$("btnHigher").addEventListener("click", function(){ placeBid("higher"); });
+$("btnLower").addEventListener("click", function(){ placeBid("lower"); });
+
+var settledBidIds = {};
+function settleBid(row){
+  if (!row || settledBidIds[row.id]) return;
+  if (row.status !== "won" && row.status !== "lost") return;
+  settledBidIds[row.id] = true;
+  var stake = Number(row.stake) || 0;
+  var coinFunded = (row.stake_source || "main") === "trybcoin";
+  var payout = row.status === "won" ? (coinFunded ? stake * PAYOUT_RATE : stake * (1 + PAYOUT_RATE)) : 0;
+  payout = round2(payout);
+  sb.from("tn_bids").update({ payout: payout }).eq("id", row.id).is("payout", null).select("id").then(function(up){
+    if (up.error || !up.data || !up.data.length) return; // settled elsewhere
+    var won = row.status === "won";
+    S.bids = S.bids.filter(function(b){ return b.id !== row.id; });
+    S.trades.unshift({ id: row.id, asset: row.asset, dir: dirFromDb(row.direction), stake: stake,
+      result: row.status, pnl: won ? stake * PAYOUT_RATE : -stake,
+      closedAt: row.decided_at ? new Date(row.decided_at).getTime() : Date.now() });
+    if (won){
+      S.main = round2(S.main + payout);
+      if (S.mgOn) S.mgStep = 0;
+      creditReferralShare("bid", row.id, stake * PAYOUT_RATE);
+      haptic("win");
+      toast("You won · " + row.asset, "Paid " + fmtUSD(payout) + " to Main Balance." + (coinFunded ? " Stake was TrybCoin." : ""));
+    } else {
+      if (S.mgOn) S.mgStep++;
+      haptic("err");
+      toast("Bid lost · " + row.asset, "Stake of " + fmtUSD(stake) + " forfeited.");
+    }
+    persistWallet();
+    renderAll();
+  }).catch(function(){ delete settledBidIds[row.id]; });
+}
+function settleUnpaidBids(){
+  if (!sb || !S.user) return;
+  sb.from("tn_bids").select("*").eq("user_id", S.user.id).in("status", ["won", "lost"]).is("payout", null)
+    .then(function(r){ (r.data || []).forEach(settleBid); }).catch(function(){});
+}
+function checkAutoSettle(){
+  if (!sb || !S.user || S.bidMode !== "auto") return;
+  var cutoff = new Date(Date.now() - 5 * 60000).toISOString();
+  sb.from("tn_bids").select("*").eq("user_id", S.user.id).eq("status", "pending").lt("created_at", cutoff)
+    .then(function(r){
+      (r.data || []).forEach(function(row){
+        sb.from("tn_bids").select("status").eq("id", row.id).maybeSingle().then(function(chk){
+          if (!chk.data || chk.data.status !== "pending") return;
+          var outcome = Math.random() < AUTO_WIN_RATE ? "won" : "lost";
+          sb.from("tn_bids").update({ status: outcome, decided_at: new Date().toISOString() })
+            .eq("id", row.id).eq("status", "pending").select("id").then(function(up){
+              if (up.error || !up.data || !up.data.length) return;
+              row.status = outcome; row.decided_at = new Date().toISOString();
+              settleBid(row);
+            });
+        });
+      });
+    }).catch(function(){});
+}
+setInterval(function(){
+  if (!S.user) return;
+  settleUnpaidBids();
+  checkAutoSettle();
+  if (S.bids.length){
+    sb.from("tn_bids").select("*").eq("user_id", S.user.id).eq("status", "pending").order("created_at", { ascending: false })
+      .then(function(r){
+        if (r.error) return;
+        S.bids = (r.data || []).map(function(b){
+          return { id: b.id, asset: b.asset, dir: dirFromDb(b.direction), stake: Number(b.stake) || 0,
+                   stake_source: b.stake_source || "main", time: b.created_at ? new Date(b.created_at).getTime() : Date.now() };
+        });
+        renderTrade();
+      }).catch(function(){});
+  }
+}, 4000);
+
+/* ================= MINE ================= */
+function minerExpiresAt(m){
+  var d = new Date(m.contractAt);
+  d.setMonth(d.getMonth() + 5);
+  return d.getTime();
+}
+function minerExpired(m){ return !!m && Date.now() >= minerExpiresAt(m); }
+function minerWithdrawable(){
+  var m = S.miner;
+  if (!m || !(m.balance > 0)) return 0;
+  if (Date.now() - m.purchasedAt < WEEK_MS) return 0;
+  return round2(m.balance);
+}
+function fmtDur(ms){
+  if (ms <= 0) return "now";
+  var s = Math.floor(ms / 1000), d = Math.floor(s / 86400), h = Math.floor(s % 86400 / 3600), mi = Math.floor(s % 3600 / 60), se = s % 60;
+  if (d > 0) return d + "d " + h + "h";
+  if (h > 0) return h + "h " + mi + "m";
+  return mi + "m " + se + "s";
+}
+function renderMiner(){
+  var card = $("minerCard");
+  var m = S.miner;
+  if (!m || !(m.price > 0)){
+    card.innerHTML = "<h3>⛏️ Your Miner</h3><div class='small mut'>You don't own a miner yet. Buy one below — it earns 2% of its value every 24h cycle. Mining returns are generated from trading activity. Principal carries risk and returns are not guaranteed.</div>";
+    return;
+  }
+  var exp = minerExpired(m);
+  var w = minerWithdrawable();
+  var cycleHtml = "";
+  if (m.status === "running" && m.startedAt){
+    var pct = Math.min(100, Math.round((Date.now() - m.startedAt) / CYCLE_MS * 100));
+    cycleHtml = '<div class="mine-stat"><span class="k">Cycle progress</span><span class="v num" id="mineCycleTxt">' + fmtDur(m.startedAt + CYCLE_MS - Date.now()) + ' left</span></div><div class="prog"><i style="width:' + pct + '%"></i></div>';
+  }
+  card.innerHTML = "<h3>⛏️ Your Miner " + (exp ? '<span class="tag lost">Contract expired</span>' : m.status === "running" ? '<span class="tag won">Running</span>' : '<span class="tag pend">Idle</span>') + "</h3>" +
+    '<div class="mine-stat"><span class="k">Rig value</span><span class="v num">' + fmtUSD(m.price) + '</span></div>' +
+    '<div class="mine-stat"><span class="k">Profit per 24h cycle</span><span class="v num">' + fmtUSD(m.profit) + '</span></div>' +
+    '<div class="mine-stat"><span class="k">Mining balance</span><span class="v num">' + fmtUSD(m.balance) + '</span></div>' +
+    cycleHtml +
+    '<div class="mine-stat"><span class="k">Contract ends</span><span class="v">' + new Date(minerExpiresAt(m)).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) + '</span></div>' +
+    '<div class="mine-stat"><span class="k">Cashout</span><span class="v num" id="mineCashTxt">' + (w > 0 ? fmtUSD(w) + " available" : "unlocks in " + fmtDur(m.purchasedAt + WEEK_MS - Date.now())) + '</span></div>' +
+    '<div style="display:flex; gap:10px; margin-top:13px;">' +
+    (m.status !== "running" && !exp ? '<button class="btn btn-gold" id="mineStartBtn" type="button" style="margin:0; flex:1;">Start mining</button>' : "") +
+    (w > 0 ? '<button class="btn btn-navy" id="mineCashBtn" type="button" style="flex:1;">Cash out ' + fmtUSD(w) + '</button>' : "") +
+    "</div>" +
+    (exp ? '<div class="small mut" style="margin-top:10px;">Your 5-month contract has ended. Buy again below to start a fresh contract — your mining profits stay cashable.</div>' : "");
+  var sBtn = $("mineStartBtn"); if (sBtn) sBtn.addEventListener("click", startMining);
+  var cBtn = $("mineCashBtn"); if (cBtn) cBtn.addEventListener("click", cashoutMiner);
+}
+function renderMinerTick(){
+  var m = S.miner;
+  if (!m) return;
+  var ct = $("mineCycleTxt");
+  if (ct && m.status === "running" && m.startedAt){
+    ct.textContent = fmtDur(m.startedAt + CYCLE_MS - Date.now()) + " left";
+    if (Date.now() - m.startedAt >= CYCLE_MS) checkMinerCycle();
+  }
+  var kt = $("mineCashTxt");
+  if (kt && !(minerWithdrawable() > 0)) kt.textContent = "unlocks in " + fmtDur(m.purchasedAt + WEEK_MS - Date.now());
+}
+var minerSettleKey = null, minerSettling = false;
+function checkMinerCycle(){
+  var m = S.miner;
+  if (!m || minerSettling) return;
+  if (m.status !== "running" || !m.startedAt) return;
+  if (Date.now() - m.startedAt < CYCLE_MS) return;
+  if (minerSettleKey === m.startedAt) return;
+  if (m.startedAt >= minerExpiresAt(m)){
+    m.status = "idle"; m.startedAt = null;
+    persistMiner(); renderMiner(); renderHome();
+    return;
+  }
+  minerSettling = true;
+  minerSettleKey = m.startedAt;
+  var profit = m.profit, cycleStart = m.startedAt;
+  m.balance = round2(m.balance + profit);
+  m.status = "idle"; m.startedAt = null;
+  persistMiner().then(function(ok){
+    minerSettling = false;
+    if (ok){
+      creditReferralShare("mining_cycle", S.user.id + ":" + new Date(cycleStart).toISOString(), profit);
+      haptic("win");
+      toast("Mining complete: +" + fmtUSD(profit), "Profit is in your Mining balance. Start the miner again for the next cycle.");
+    }
+    renderAll();
+  });
+}
+function startMining(){
+  var m = S.miner;
+  if (!m || m.status === "running" || minerExpired(m)) return;
+  m.status = "running"; m.startedAt = Date.now();
+  persistMiner().then(function(){ haptic(); toast("Miner started", "Your 24h cycle is running — profit lands when it completes."); renderAll(); });
+}
+function cashoutMiner(){
+  var m = S.miner;
+  var amt = minerWithdrawable();
+  if (!m || !(amt > 0)) return;
+  S.main = round2(S.main + amt);
+  m.balance = round2(m.balance - amt);
+  m.purchasedAt = Date.now();
+  persistMiner().then(function(){
+    return persistWallet();
+  }).then(function(){
+    miningCreditAdd(amt);
+    haptic("win");
+    toast("Cashout complete", fmtUSD(amt) + " moved to Main Balance — instantly withdrawable. Next cashout unlocks in 7 days.");
+    renderAll();
+  });
+}
+$("mineBuyBtn").addEventListener("click", function(){
+  if (!sb || !S.user) return;
+  var amt = parseFloat($("mineAmt").value);
+  if (!(amt > 0)){ toast("Enter an amount", "Minimum miner purchase is " + fmtUSD(MINER.min) + "."); return; }
+  amt = Math.floor(amt * 100) / 100;
+  if (amt < MINER.min){ toast("Below minimum", "The minimum is " + fmtUSD(MINER.min) + "."); return; }
+  var expired = !!S.miner && minerExpired(S.miner);
+  var base = (S.miner && !expired) ? S.miner.price : 0;
+  if (round2(base + amt) > MINER.max){ toast("Past the maximum", "Your rig can hold up to " + fmtUSD(MINER.max) + "."); return; }
+  var prevMain = S.main, prevCoins = S.coins, prevMiner = S.miner;
+  var dd = deductStake(amt);
+  if (!dd.ok){ renderAll(); return; }
+  var now = Date.now();
+  var newPrice = round2(base + amt);
+  S.miner = {
+    price: newPrice, profit: round2(newPrice * MINER.rate),
+    balance: prevMiner ? prevMiner.balance : 0,
+    purchasedAt: expired ? now : (prevMiner ? prevMiner.purchasedAt : now),
+    contractAt: expired ? now : (prevMiner ? prevMiner.contractAt : now),
+    startedAt: expired ? null : (prevMiner ? prevMiner.startedAt : null),
+    status: expired ? "idle" : (prevMiner ? prevMiner.status : "idle")
+  };
+  persistMiner().then(function(ok){
+    if (!ok){
+      S.main = prevMain; S.coins = prevCoins; S.miner = prevMiner;
+      persistWallet(); persistCoins(); renderAll();
+      toast("Purchase failed", "Your balance was restored.");
+      return;
+    }
+    return persistWallet().then(function(){
+      addWagering(amt);
+      haptic("win");
+      toast(prevMiner && !expired ? "Miner topped up" : "Miner purchased",
+        "Rig is now " + fmtUSD(newPrice) + ", earning " + fmtUSD(S.miner.profit) + " per 24h cycle. Profits unlock for cashout 7 days from purchase.");
+      $("mineAmt").value = "";
+      renderAll();
+    });
+  });
+});
+
+/* ================= FIXED SAVINGS ================= */
+$("savTiers").addEventListener("click", function(e){
+  var b = e.target.closest("button[data-days]");
+  if (!b) return;
+  S.savDays = Number(b.getAttribute("data-days"));
+  $("savTiers").querySelectorAll("button").forEach(function(x){ x.classList.toggle("on", x === b); });
+});
+function settleSavings(){
+  if (!sb || !S.user) return;
+  var now = Date.now();
+  S.lots.filter(function(l){ return l.unlockAt && l.unlockAt <= now; }).forEach(function(l){
+    sb.from("tn_savings_lots").delete().eq("id", l.id).select("id").then(function(r){
+      if (r.error || !r.data || !r.data.length) return; // settled elsewhere
+      var days = Math.round((l.unlockAt - l.createdAt) / 86400000);
+      var tier = investTierForDays(days);
+      var total = round2(l.amount + l.amount * tier.rate / 100);
+      S.main = round2(S.main + total);
+      S.lots = S.lots.filter(function(x){ return x.id !== l.id; });
+      persistWallet();
+      haptic("win");
+      toast("Savings matured", fmtUSD(l.amount) + " + " + fmtUSD(total - l.amount) + " interest credited to Main Balance.");
+      renderAll();
+    }).catch(function(){});
+  });
+}
+$("savBuy").addEventListener("click", function(){
+  var amt = parseFloat($("savAmt").value);
+  if (!(amt >= INVEST_MIN)){ toast("Minimum is " + fmtUSD(INVEST_MIN), "Enter at least $10 to save."); return; }
+  amt = Math.floor(amt * 100) / 100;
+  if (round2(S.main) < amt){ toast("Insufficient balance", "Fixed Savings uses Main Balance only."); return; }
+  var tier = INVEST_TIERS.find(function(t){ return t.days === S.savDays; }) || INVEST_TIERS[1];
+  S.main = round2(S.main - amt);
+  var unlock = new Date(Date.now() + tier.days * 86400000).toISOString();
+  sb.from("tn_savings_lots").insert({ user_id: S.user.id, amount: amt, unlock_at: unlock }).select().single().then(function(r){
+    if (r.error) throw r.error;
+    S.lots.unshift({ id: r.data.id, amount: amt, createdAt: Date.now(), unlockAt: new Date(unlock).getTime() });
+    return persistWallet();
+  }).then(function(){
+    haptic("win");
+    toast("Saved " + fmtUSD(amt), tier.label + " at " + tier.rate + "% — you'll receive " + fmtUSD(round2(amt + amt * tier.rate / 100)) + " at maturity.");
+    $("savAmt").value = "";
+    renderAll();
+  }).catch(function(){
+    S.main = round2(S.main + amt);
+    persistWallet();
+    toast("Couldn't save", "Your balance was restored.");
+    renderAll();
+  });
+});
+
+/* ================= PLAY ================= */
+var playsDetailKnown = null;
+function insertPlay(game, stake, detail){
+  if (!sb || !S.user) return Promise.resolve(null);
+  function attempt(withDetail){
+    var row = { user_id: S.user.id, game: game, stake: stake, payout: 0, status: "pending" };
+    if (withDetail) row.detail = detail || {};
+    return sb.from("tn_plays").insert(row).select().single();
+  }
+  return attempt(playsDetailKnown !== false).then(function(res){
+    if (!res.error){ playsDetailKnown = true; return res.data ? res.data.id : null; }
+    if (playsDetailKnown !== false){
+      playsDetailKnown = false;
+      return attempt(false).then(function(r2){ return (!r2.error && r2.data) ? r2.data.id : null; });
+    }
+    return null;
+  }).catch(function(){ return null; });
+}
+function updatePlay(id, status, payout, detail){
+  if (!sb || !id) return Promise.resolve(false);
+  var patch = { status: status, payout: payout };
+  if (detail && playsDetailKnown !== false) patch.detail = detail;
+  return sb.from("tn_plays").update(patch).eq("id", id).then(function(r){ return !r.error; }).catch(function(){ return false; });
+}
+/* Shared game settlement: main-funded credits the full payout to Main;
+   coin-funded credits profit only (draws refund the coins). */
+function settleGamePlay(playId, stake, payout, source, gameLabel){
+  payout = round2(payout);
+  var status = payout > stake ? "won" : payout === stake ? "draw" : "lost";
+  updatePlay(playId, status, payout);
+  if (source === "trybcoin"){
+    var profit = round2(payout - stake);
+    if (profit > 0){
+      S.main = round2(S.main + profit);
+      creditReferralShare("game_round", playId, profit);
+      persistWallet();
+      return { credited: profit, text: "Profit " + fmtUSD(profit) + " paid to Main Balance (TrybCoin stake)." };
+    }
+    if (payout === stake && stake > 0){
+      S.coins += Math.round(stake * 1000);
+      persistCoins();
+      return { credited: 0, text: "Stake returned in TrybCoin." };
+    }
+    return { credited: 0, text: "" };
+  }
+  if (payout > 0){
+    S.main = round2(S.main + payout);
+    if (payout > stake) creditReferralShare("game_round", playId, round2(payout - stake));
+    persistWallet();
+  }
+  return { credited: payout, text: payout > 0 ? fmtUSD(payout) + " credited to Main Balance." : "" };
+}
+$("gcSpin").addEventListener("click", function(){ $("spinPanel").classList.toggle("hidden"); $("avPanel").classList.add("hidden"); });
+$("gcAviator").addEventListener("click", function(){ $("avPanel").classList.toggle("hidden"); $("spinPanel").classList.add("hidden"); });
+$("gcFull1").addEventListener("click", function(){ openExt(FULL_APP); });
+$("gcFull2").addEventListener("click", function(){ openExt(FULL_APP); });
+$("spinPayMain").addEventListener("click", function(){ setStakeSource("main"); });
+$("spinPayCoin").addEventListener("click", function(){ setStakeSource("trybcoin"); });
+$("avPayMain").addEventListener("click", function(){ setStakeSource("main"); });
+$("avPayCoin").addEventListener("click", function(){ setStakeSource("trybcoin"); });
+
+/* ---- Spin Wheel — the house table: Try again 50% · $1 14% · $0.50 11% · stake back 21% · 2× 3.5% · 10× 0.5% ---- */
+var spinBusy = false, wheelRot = 0;
+function sampleSpin(){
+  var r = Math.random() * 100;
+  if (r < 50) return { key: "try", label: "Try again", mult: 0, flat: 0 };
+  if (r < 64) return { key: "flat1", label: "$1 prize", mult: 0, flat: 1 };
+  if (r < 75) return { key: "flat05", label: "$0.50 prize", mult: 0, flat: 0.5 };
+  if (r < 96) return { key: "back", label: "Stake back", mult: 1, flat: 0 };
+  if (r < 99.5) return { key: "x2", label: "2× stake", mult: 2, flat: 0 };
+  return { key: "x10", label: "10× stake!", mult: 10, flat: 0 };
+}
+$("spinBtn").addEventListener("click", function(){
+  if (spinBusy) return;
+  var stake = round2(parseFloat($("spinStake").value) || 0);
+  if (!(stake >= 1)){ toast("Minimum stake $1", "Enter at least $1 to spin."); return; }
+  var prevMain = S.main, prevCoins = S.coins;
+  var dd = deductStake(stake);
+  if (!dd.ok){ renderAll(); return; }
+  spinBusy = true;
+  $("spinBtn").disabled = true;
+  $("spinResult").textContent = "Spinning…";
+  var outcome = sampleSpin();
+  insertPlay("spin", stake, { outcome: outcome.key }).then(function(playId){
+    wheelRot += 1440 + Math.random() * 720;
+    $("spinWheel").style.transform = "rotate(" + wheelRot + "deg)";
+    setTimeout(function(){
+      var payout = outcome.flat > 0 ? outcome.flat : round2(stake * outcome.mult);
+      var res = settleGamePlay(playId, stake, payout, dd.source, "spin");
+      addWagering(stake);
+      spinBusy = false;
+      $("spinBtn").disabled = false;
+      $("spinCenter").textContent = outcome.key === "try" ? "TRY AGAIN" : outcome.label.toUpperCase();
+      $("spinResult").textContent = outcome.label + (res.text ? " — " + res.text : " — no win this time.");
+      if (payout > stake) haptic("win"); else if (payout > 0) haptic();
+      toast("Spin: " + outcome.label, res.text || "Better luck next spin.");
+      renderAll();
+    }, 3750);
+  }).catch(function(){
+    S.main = prevMain; S.coins = prevCoins; persistWallet(); persistCoins();
+    spinBusy = false; $("spinBtn").disabled = false;
+    toast("Spin failed", "Your stake was restored.");
+    renderAll();
+  });
+});
+
+/* ---- Aviator — multiplier 1 + t/10, crash sampled per the house rules ---- */
+var av = { state: "idle", timer: null, startAt: 0, crash: 0, stake: 0, source: "main", playId: null, plays: null };
+function sampleCrash(){
+  if (av.plays !== null && av.plays < 2 && Math.random() < 0.30){
+    return round2(2 + Math.random() * 1.2); // early-plays hook: 30% land at 2.0×+
+  }
+  var u = Math.random();
+  var c = Math.pow(1 - u, -1 / 3.315);
+  return Math.max(1, Math.min(10, Math.floor(c * 100) / 100));
+}
+function avCountPlays(){
+  if (!sb || !S.user) return;
+  sb.from("tn_plays").select("*", { count: "exact", head: true }).eq("user_id", S.user.id).eq("game", "aviator")
+    .then(function(r){ av.plays = r.count || 0; }).catch(function(){});
+}
+function avReset(label){
+  av.state = "idle";
+  if (av.timer) clearInterval(av.timer);
+  av.timer = null;
+  $("avBtn").textContent = "Take off";
+  $("avBtn").disabled = false;
+  if (label) $("avState").textContent = label;
+}
+$("avBtn").addEventListener("click", function(){
+  if (av.state === "flying"){
+    // cash out
+    var mult = 1 + (Date.now() - av.startAt) / 10000;
+    mult = Math.floor(mult * 100) / 100;
+    var payout = round2(av.stake * mult);
+    var res = settleGamePlay(av.playId, av.stake, payout, av.source, "aviator");
+    addWagering(av.stake);
+    if (av.plays !== null) av.plays++;
+    $("avState").textContent = "Cashed out at " + mult.toFixed(2) + "× — " + (res.text || "");
+    haptic("win");
+    toast("Cashed out at " + mult.toFixed(2) + "×", res.text);
+    avReset();
+    $("avBtn").textContent = "Take off";
+    renderAll();
+    return;
+  }
+  if (av.state !== "idle") return;
+  var stake = round2(parseFloat($("avStake").value) || 0);
+  if (!(stake >= 1)){ toast("Minimum stake $1", "Enter at least $1 to fly."); return; }
+  if (av.plays === null) avCountPlays();
+  var prevMain = S.main, prevCoins = S.coins;
+  var dd = deductStake(stake);
+  if (!dd.ok){ renderAll(); return; }
+  av.stake = stake; av.source = dd.source;
+  av.crash = sampleCrash();
+  insertPlay("aviator", stake, {}).then(function(playId){
+    av.playId = playId;
+    av.state = "flying";
+    av.startAt = Date.now();
+    $("avBtn").textContent = "Cash out";
+    $("avState").textContent = "Flying… cash out before it disappears!";
+    av.timer = setInterval(function(){
+      var mult = 1 + (Date.now() - av.startAt) / 10000;
+      if (mult >= av.crash || mult >= 10){
+        var finalMult = Math.min(av.crash, 10);
+        $("avMult").textContent = finalMult.toFixed(2) + "×";
+        updatePlay(av.playId, "lost", 0, { crashed_at: finalMult });
+        addWagering(av.stake);
+        if (av.plays !== null) av.plays++;
+        $("avState").textContent = "Flew away at " + finalMult.toFixed(2) + "× — stake lost.";
+        haptic("err");
+        avReset();
+        renderAll();
+        return;
+      }
+      $("avMult").textContent = mult.toFixed(2) + "×";
+      $("avBtn").textContent = "Cash out " + fmtUSD(round2(av.stake * mult));
+    }, 100);
+    renderAll();
+  }).catch(function(){
+    S.main = prevMain; S.coins = prevCoins; persistWallet(); persistCoins();
+    toast("Take-off failed", "Your stake was restored.");
+    renderAll();
+  });
+});
+
+/* ================= EARN TRYBCOIN ================= */
+var EARN_TASKS = [
+  { ico: "✈️", title: "Join our Telegram", sub: "Join the TrybNetwork Telegram group", reward: 50, link: "https://t.me/Trybnetwork" },
+  { ico: "📘", title: "Follow on Facebook", sub: "Follow the TrybNetwork Facebook page", reward: 50, link: "https://www.facebook.com/share/19ULzKcKVm/?mibextid=wwXIfr" },
+  { ico: "🎵", title: "Follow on TikTok", sub: "Follow @tryb.network on TikTok", reward: 50, link: "https://www.tiktok.com/@tryb.network" },
+  { ico: "🔁", title: "Reshare TikTok post", sub: "Reshare a TrybNetwork TikTok post", reward: 50, link: "https://www.tiktok.com/@tryb.network" },
+  { ico: "🔁", title: "Reshare Facebook post", sub: "Share a TrybNetwork Facebook post", reward: 50, link: "https://www.facebook.com/share/19ULzKcKVm/?mibextid=wwXIfr" },
+  { ico: "🔗", title: "Share link to 5+ friends", sub: "Share TrybNetwork with at least 5 friends", reward: 100, link: null },
+  { ico: "𝕏", title: "Follow us on X", sub: "Follow @trybnetwork on X", reward: 50, link: "https://x.com/trybnetwork" },
+  { ico: "💬", title: "Join WhatsApp Channel", sub: "Follow the TrybNetwork WhatsApp channel", reward: 50, link: "https://whatsapp.com/channel/0029VbDTWprLdQefEmzMI73V" },
+  { ico: "▶️", title: "Subscribe on YouTube", sub: "Subscribe to the TrybNetwork YouTube channel", reward: 50, link: "https://youtube.com/@trybnetwork" },
+  { ico: "🎥", title: "Promo video", sub: "Record a video about TrybNetwork and post on TikTok or WhatsApp Status", reward: 500, link: null }
+];
+function earnDoneSet(){
+  try { return JSON.parse(localStorage.getItem("tg_earn_done") || "[]"); } catch(e){ return []; }
+}
+function renderEarn(){
+  $("earnCoinBal").textContent = fmtTN(S.coins) + " TN";
+  var done = earnDoneSet();
+  $("earnTasks").innerHTML = EARN_TASKS.map(function(t, i){
+    var isDone = done.indexOf(i) > -1;
+    return '<div class="task"><div class="ti">' + t.ico + '</div><div><div class="tt">' + esc(t.title) +
+      '</div><div class="ts">' + esc(t.sub) + '</div></div><div class="tr"><div class="num" style="font-weight:800; color:var(--gold-hi); font-size:13px;">+' + t.reward + ' TN</div>' +
+      '<button class="tbtn' + (isDone ? " done" : "") + '" data-task="' + i + '" type="button">' + (isDone ? "Done ✓" : "Go") + "</button></div></div>";
+  }).join("");
+}
+$("earnTasks").addEventListener("click", function(e){
+  var b = e.target.closest("button[data-task]");
+  if (!b) return;
+  var i = Number(b.getAttribute("data-task"));
+  var done = earnDoneSet();
+  var t = EARN_TASKS[i];
+  if (done.indexOf(i) > -1){
+    done = done.filter(function(x){ return x !== i; });
+  } else {
+    done.push(i);
+    if (t.link) openExt(t.link);
+  }
+  try { localStorage.setItem("tg_earn_done", JSON.stringify(done)); } catch(e){}
+  renderEarn();
+});
+$("earnDoneBtn").addEventListener("click", function(){
+  var done = earnDoneSet();
+  if (done.length < EARN_TASKS.length){ toast("Tasks not finished", "Complete all 10 tasks first — " + done.length + "/10 done."); return; }
+  var claimed = false;
+  try { claimed = localStorage.getItem("tg_earn_claimed") === "1"; } catch(e){}
+  if (claimed){ $("earnProof").classList.remove("hidden"); return; }
+  if (!sb || !S.user) return;
+  var total = EARN_TASKS.reduce(function(a, t){ return a + t.reward; }, 0);
+  sb.from("tn_coin_requests").insert({ user_id: S.user.id, coins: total }).then(function(r){
+    if (r.error){ toast("Request failed", "Try again in a moment."); return; }
+    try { localStorage.setItem("tg_earn_claimed", "1"); } catch(e){}
+    $("earnProof").classList.remove("hidden");
+    haptic("win");
+    toast("1,000 TN requested", "Share your proof with the admin to receive your coins.");
+  }).catch(function(){ toast("Request failed", "Try again in a moment."); });
+});
+$("proofBtn").addEventListener("click", function(){ openExt(ADMIN_TG_DM); });
+avCountPlays();
+</script>
+</body>
+</html>

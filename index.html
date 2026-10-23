@@ -421,14 +421,17 @@ function dirToDb(d){ return d === "higher" ? "high" : "low"; }
 function dirFromDb(d){ return d === "high" ? "higher" : "lower"; }
 
 /* ================= wallet / ledger primitives ================= */
+var walletHydratedFor = null; // user id whose server wallet this session has loaded — persist refuses to write before that (a stale/zero local state once overwrote a real balance)
 function persistWallet(){
   if (!sb || !S.user) return Promise.resolve(false);
+  if (walletHydratedFor !== S.user.id) return Promise.resolve(false);
   var payload = { user_id: S.user.id, main_balance: round2(S.main), traded_volume: S.bonusTraded,
                   bonus_locked: S.bonusLocked, updated_at: new Date().toISOString() };
   return sb.from("tn_wallets").upsert(payload).then(function(r){ return !r.error; }).catch(function(){ return false; });
 }
 function persistCoins(){
   if (!sb || !S.user) return Promise.resolve(false);
+  if (walletHydratedFor !== S.user.id) return Promise.resolve(false);
   return sb.from("tn_wallets").update({ trybcoin: Math.round(S.coins), updated_at: new Date().toISOString() })
     .eq("user_id", S.user.id).then(function(r){ return !r.error; }).catch(function(){ return false; });
 }
@@ -521,6 +524,7 @@ function loadAll(silent){
     S.coins = wal.data ? Number(wal.data.trybcoin) || 0 : 0;
     S.bonusTraded = wal.data ? Number(wal.data.traded_volume) || 0 : 0;
     S.bonusLocked = wal.data ? !!wal.data.bonus_locked : true;
+    walletHydratedFor = S.user.id;
     S.miner = mapMiner(min.data);
     S.requests = reqs.data || [];
     var rows = bids.data || [];
@@ -689,7 +693,7 @@ $("loginBtn").addEventListener("click", signIn);
 $("loginPass").addEventListener("keydown", function(e){ if (e.key === "Enter") signIn(); });
 $("logoutBtn").addEventListener("click", function(){
   if (sb) sb.auth.signOut();
-  S.user = null;
+  S.user = null; walletHydratedFor = null;
   $("appView").classList.add("hidden");
   $("authView").classList.remove("hidden");
 });

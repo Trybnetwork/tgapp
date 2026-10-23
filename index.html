@@ -421,19 +421,37 @@ function dirToDb(d){ return d === "higher" ? "high" : "low"; }
 function dirFromDb(d){ return d === "high" ? "higher" : "lower"; }
 
 /* ================= wallet / ledger primitives ================= */
-var walletHydratedFor = null; // user id whose server wallet this session has loaded — persist refuses to write before that (a stale/zero local state once overwrote a real balance)
+var walletHydratedFor = null; // user id whose server wallet this session has loaded
+var walletServerMain = null, walletServerTraded = null, walletServerCoins = null; // last server-confirmed wallet values; persist sends deltas via tn_apply_balance
+var persistChain = Promise.resolve(), coinChain = Promise.resolve(); // persist refuses to write before hydration (a stale/zero local state once overwrote a real balance)
 function persistWallet(){
   if (!sb || !S.user) return Promise.resolve(false);
-  if (walletHydratedFor !== S.user.id) return Promise.resolve(false);
-  var payload = { user_id: S.user.id, main_balance: round2(S.main), traded_volume: S.bonusTraded,
-                  bonus_locked: S.bonusLocked, updated_at: new Date().toISOString() };
-  return sb.from("tn_wallets").upsert(payload).then(function(r){ return !r.error; }).catch(function(){ return false; });
+  if (walletHydratedFor !== S.user.id || walletServerMain === null) return Promise.resolve(false);
+  persistChain = persistChain.then(function(){
+    var dMain = Math.round((round2(S.main) - walletServerMain) * 100) / 100;
+    var dTraded = Math.round(((Number(S.bonusTraded) || 0) - walletServerTraded) * 100) / 100;
+    if (!dMain && !dTraded) return true;
+    return sb.rpc("tn_apply_balance", { p_main_delta: dMain, p_coin_delta: 0, p_traded_delta: dTraded, p_set_bonus_locked: !!S.bonusLocked, p_kind: "sync", p_ref: null }).then(function(res){
+      if (res.error || !res.data || !res.data.ok) return false;
+      walletServerMain = Number(res.data.main_balance); walletServerTraded = Number(res.data.traded_volume);
+      return true;
+    }).catch(function(){ return false; });
+  });
+  return persistChain;
 }
 function persistCoins(){
   if (!sb || !S.user) return Promise.resolve(false);
-  if (walletHydratedFor !== S.user.id) return Promise.resolve(false);
-  return sb.from("tn_wallets").update({ trybcoin: Math.round(S.coins), updated_at: new Date().toISOString() })
-    .eq("user_id", S.user.id).then(function(r){ return !r.error; }).catch(function(){ return false; });
+  if (walletHydratedFor !== S.user.id || walletServerCoins === null) return Promise.resolve(false);
+  coinChain = coinChain.then(function(){
+    var dCoins = Math.round(S.coins - walletServerCoins);
+    if (!dCoins) return true;
+    return sb.rpc("tn_apply_balance", { p_main_delta: 0, p_coin_delta: dCoins, p_traded_delta: 0, p_set_bonus_locked: null, p_kind: "coins", p_ref: null }).then(function(res){
+      if (res.error || !res.data || !res.data.ok) return false;
+      walletServerCoins = Number(res.data.trybcoin);
+      return true;
+    }).catch(function(){ return false; });
+  });
+  return coinChain;
 }
 function addWagering(amount){
   amount = round2(amount);
@@ -534,6 +552,7 @@ function loadAll(silent){
     S.bonusTraded = wal.data ? Number(wal.data.traded_volume) || 0 : 0;
     S.bonusLocked = wal.data ? !!wal.data.bonus_locked : true;
     walletHydratedFor = S.user.id;
+    walletServerMain = S.main; walletServerTraded = S.bonusTraded; walletServerCoins = S.coins;
     S.miner = mapMiner(min.data);
     S.requests = reqs.data || [];
     var rows = bids.data || [];
@@ -702,7 +721,7 @@ $("loginBtn").addEventListener("click", signIn);
 $("loginPass").addEventListener("keydown", function(e){ if (e.key === "Enter") signIn(); });
 $("logoutBtn").addEventListener("click", function(){
   if (sb) sb.auth.signOut();
-  S.user = null; walletHydratedFor = null;
+  S.user = null; walletHydratedFor = null; walletServerMain = null; walletServerTraded = null; walletServerCoins = null;
   $("appView").classList.add("hidden");
   $("authView").classList.remove("hidden");
 });

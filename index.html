@@ -1421,5 +1421,11 @@ $("earnDoneBtn").addEventListener("click", submitPromo);
 $("proofBtn").addEventListener("click", function(){ openExt(ADMIN_TG_DM); });
 avCountPlays();
 </script>
+
+<style>
+/* Safe-area (2026-10-24): keep headers clear of the iPhone Dynamic Island / status bar */
+.auth{ padding-top: calc(28px + env(safe-area-inset-top, 0px)); }
+.hdr{ padding-top: calc(12px + env(safe-area-inset-top, 0px)); }
+</style>
 </body>
 </html>

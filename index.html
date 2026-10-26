@@ -472,6 +472,8 @@ function deductStake(usd, forceSrc){
     return { ok: true, source: "trybcoin" };
   }
   if (round2(S.main) < usd){ toast("Insufficient balance", "Your Main Balance is " + fmtUSD(S.main) + "."); return { ok: false }; }
+  var movable = S.bonusLocked ? Math.max(0, round2(S.main) - Math.min(3, round2(S.main))) : round2(S.main);
+  if (usd > movable){ toast("Welcome bonus locked", "Your $3 welcome bonus unlocks after you trade $10 of your own money. You can stake " + fmtUSD(movable) + " right now."); return { ok: false }; }
   S.main = round2(S.main - usd);
   persistWallet();
   return { ok: true, source: "main" };
@@ -535,6 +537,36 @@ function persistMiner(){
     miner_started_at: m.startedAt ? new Date(m.startedAt).toISOString() : null, miner_status: m.status };
   return sb.from("tn_miners").upsert(row).then(function(r){ return !r.error; }).catch(function(){ return false; });
 }
+/* Welcome bonus (2026-10-26): server-granted via tn_claim_welcome_bonus,
+   one claim per account AND per device. Silent for everyone else. */
+var welcomeClaimTried = false;
+function tnDeviceKey(){
+  try {
+    var k = localStorage.getItem("tn_device_id");
+    if (!k){
+      k = localStorage.getItem("tn_vid") || "";
+      if (!k || k.length < 8) k = "dev-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 10);
+      localStorage.setItem("tn_device_id", k);
+    }
+    return k;
+  } catch(e){ return ""; }
+}
+function maybeClaimWelcome(){
+  if (welcomeClaimTried || !sb || !S.user) return;
+  welcomeClaimTried = true;
+  if (S.main >= 3 && S.bonusLocked) return; // bonus already in the wallet
+  var key = tnDeviceKey();
+  if (!key) return;
+  sb.rpc("tn_claim_welcome_bonus", { p_device_key: key }).then(function(res){
+    if (res.data && res.data.ok){
+      S.main = round2(S.main + 3);
+      S.bonusLocked = true;
+      walletServerMain = S.main;
+      renderAll();
+      toast("Welcome bonus added", "$3.00 is in your Main Balance — it unlocks after you trade $10 of your own money.");
+    }
+  }).catch(function(){});
+}
 function loadAll(silent){
   if (!sb || !S.user) return Promise.resolve(false);
   return Promise.all([
@@ -554,6 +586,7 @@ function loadAll(silent){
     S.bonusTraded = wal.data ? Number(wal.data.traded_volume) || 0 : 0;
     S.bonusLocked = wal.data ? !!wal.data.bonus_locked : true;
     walletHydratedFor = S.user.id;
+    maybeClaimWelcome();
     walletServerMain = S.main; walletServerTraded = S.bonusTraded; walletServerCoins = S.coins;
     S.miner = mapMiner(min.data);
     S.requests = reqs.data || [];

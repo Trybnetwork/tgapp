@@ -264,7 +264,7 @@
     <div class="card" id="minerCard"></div>
     <div class="card">
       <h3>Buy / top up</h3>
-      <div class="small mut">One miner — 2% per 24h cycle, $5 min / $50,000 max. Top-ups stack onto your rig; the contract runs 5 months from first purchase.</div>
+      <div class="small mut">One miner — 2% per 24h cycle, $5 min / $50,000 max. Top-ups stack onto your rig; the contract runs 4 months from first purchase.</div>
       <div class="stake-row">
         <div class="stake-in"><span>$</span><input id="mineAmt" type="number" inputmode="decimal" placeholder="50" min="5"></div>
       </div>
@@ -947,7 +947,7 @@ setInterval(function(){
 /* ================= MINE ================= */
 function minerExpiresAt(m){
   var d = new Date(m.contractAt);
-  d.setMonth(d.getMonth() + 5);
+  d.setMonth(d.getMonth() + 4);
   return d.getTime();
 }
 function minerExpired(m){ return !!m && Date.now() >= minerExpiresAt(m); }
@@ -991,7 +991,7 @@ function renderMiner(){
     (m.status !== "running" && !exp ? '<button class="btn btn-gold" id="mineStartBtn" type="button" style="margin:0; flex:1;">Start mining</button>' : "") +
     (w > 0 ? '<button class="btn btn-navy" id="mineCashBtn" type="button" style="flex:1;">Cash out ' + fmtUSD(w) + '</button>' : "") +
     "</div>" +
-    (exp ? '<div class="small mut" style="margin-top:10px;">Your 5-month contract has ended. Buy again below to start a fresh contract — your mining profits stay cashable.</div>' : "");
+    (exp ? '<div class="small mut" style="margin-top:10px;">Your 4-month contract has ended. Buy again below to start a fresh contract — your mining profits stay cashable.</div>' : "");
   var sBtn = $("mineStartBtn"); if (sBtn) sBtn.addEventListener("click", startMining);
   var cBtn = $("mineCashBtn"); if (cBtn) cBtn.addEventListener("click", cashoutMiner);
 }

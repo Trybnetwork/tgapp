@@ -461,7 +461,7 @@ function addWagering(amount){
   S.wagering = round2((Number(S.wagering) || 0) + amount);
   sb.from("tn_profiles").update({ wagering_volume: S.wagering }).eq("id", S.user.id).then(function(){}).catch(function(){});
 }
-function deductStake(usd, forceSrc){
+function deductStake(usd, forceSrc, guardBonus){
   usd = round2(usd);
   if (!(usd > 0)) return { ok: false };
   if ((forceSrc || S.stakeSource) === "trybcoin"){
@@ -473,7 +473,7 @@ function deductStake(usd, forceSrc){
   }
   if (round2(S.main) < usd){ toast("Insufficient balance", "Your Main Balance is " + fmtUSD(S.main) + "."); return { ok: false }; }
   var movable = S.bonusLocked ? Math.max(0, round2(S.main) - Math.min(3, round2(S.main))) : round2(S.main);
-  if (usd > movable){ toast("Welcome bonus locked", "Your $3 welcome bonus unlocks after you trade $10 of your own money. You can stake " + fmtUSD(movable) + " right now."); return { ok: false }; }
+  if (guardBonus && usd > movable){ toast("Welcome bonus locked", "The welcome bonus can't be staked on Trading until you trade $10 of your own money. You can stake " + fmtUSD(movable) + " right now."); return { ok: false }; }
   S.main = round2(S.main - usd);
   persistWallet();
   return { ok: true, source: "main" };
@@ -874,7 +874,7 @@ function placeBid(dir){
   var stake = effectiveStake();
   if (!(stake > 0)){ toast("Enter a stake first", "Set a stake above $0."); return; }
   var prevMain = S.main, prevCoins = S.coins, prevTraded = S.bonusTraded, prevLocked = S.bonusLocked;
-  var dd = deductStake(stake, "main"); // Binary is Main Balance only
+  var dd = deductStake(stake, "main", true); // Binary is Main Balance only
   if (!dd.ok) { renderAll(); return; }
   bidBusy = true;
   $("btnHigher").disabled = true; $("btnLower").disabled = true;
